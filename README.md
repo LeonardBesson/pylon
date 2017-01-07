@@ -1,4 +1,4 @@
-# Pylon
+# Pylon [![Build Status](https://travis-ci.org/LeonardBesson/pylon.svg?branch=master)](https://travis-ci.org/LeonardBesson/pylon)
 **A Go Reverse Proxy and Load balancer**
 
 ## Usage
