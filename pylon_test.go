@@ -39,6 +39,7 @@ func TestNewPylon(t *testing.T) {
 			0,
 			make(map[int]bool, 3),
 			make(chan int, 300),
+			0.0,
 			&sync.RWMutex{},
 		}},
 	}
@@ -148,6 +149,7 @@ func TestNextRoundRobinInstIdx(t *testing.T)  {
 		0,
 		make(map[int]bool, 3),
 		make(chan int, 300),
+		0.0,
 		&sync.RWMutex{},
 	}
 	
