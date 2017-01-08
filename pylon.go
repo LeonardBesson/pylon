@@ -86,6 +86,8 @@ type MicroService struct {
 	LastUsedIdx int
 	BlackList   map[int]bool
 	ReqCount    chan int
+	// Caching the weight sum for faster retrieval
+	WeightSum   float32
 	Mutex       *sync.RWMutex
 }
 
@@ -166,11 +168,13 @@ func NewPylon(s *Server) (*Pylon, error) {
 			maxCon = ser.MaxCon
 		}
 
+		var weightSum float32 = 0.0
 		for _, inst := range ser.Instances {
 			var weight float32 = 1
 			if inst.Weight > 0 {
 				weight = inst.Weight
 			}
+			weightSum += weight
 			m.Instances = append(m.Instances, &Instance{
 				inst.Host,
 				weight,
@@ -183,6 +187,7 @@ func NewPylon(s *Server) (*Pylon, error) {
 		//m.LastUsedIdx = make(chan int, 1)
 		//m.LastUsedIdx <- 0
 		m.ReqCount = make(chan int, maxCon)
+		m.WeightSum = weightSum
 
 		p.Services = append(p.Services, &m)
 	}
@@ -234,7 +239,7 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 				req.URL.Host = inst.Host
 			},
 			Transport: transport,
-			FlushInterval: 2 * time.Second,
+			FlushInterval: 1 * time.Second,
 		}
 		proxy.ServeHTTP(w, r)
 		//r.Body.Close()
@@ -364,12 +369,7 @@ func (m *MicroService) getLeastConInstIdx() int {
 }
 
 func (m *MicroService) getRandomInstIdx() int {
-	var sum float32 = 0.0
-	for _, inst := range m.Instances {
-		sum += inst.Weight
-	}
-
-	r := rand.Float32() * sum
+	r := rand.Float32() * m.WeightSum
 
 	for i, inst := range m.Instances {
 		r -= inst.Weight
@@ -421,4 +421,3 @@ func (m *MicroService) isBlacklisted(idx int) bool {
 
 	return blackListed
 }
-
