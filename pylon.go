@@ -60,7 +60,7 @@ var (
 type RouteType int8
 
 const (
-	maxInt = int(^uint(0) >> 1)
+	maxFloat32 = float32(^uint(0))
 	blacklisted = true
 
 	Regex RouteType = iota
@@ -349,13 +349,13 @@ func (m *MicroService) nextRoundRobinInstIdx() int {
 }
 
 func (m *MicroService) getLeastConInstIdx() int {
-	min := maxInt
+	minLoad := maxFloat32
 	idx := 0
 
 	for i, inst := range m.Instances {
-		reqCount := len(inst.ReqCount)
-		if reqCount < min {
-			min = reqCount
+		load := float32(len(inst.ReqCount)) / inst.Weight
+		if load < minLoad {
+			minLoad = load
 			idx = i
 		}
 	}
@@ -421,6 +421,4 @@ func (m *MicroService) isBlacklisted(idx int) bool {
 
 	return blackListed
 }
-
-
 
