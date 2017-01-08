@@ -30,4 +30,22 @@ type Instance struct {
 	Host     string  `json:"host"`
 	Weight   float32 `json:"weight"`
 	ReqCount chan int
+	//RRPos	 chan int
+	RRPos	 int
+}
+
+func (i *Instance) isRoundRobinPicked() bool {
+	//cur := <-i.RRPos
+	cur := i.RRPos
+	cur++
+	if cur > int(i.Weight) {
+		cur = 0
+		//i.RRPos <- cur
+		i.RRPos = cur
+		return false
+	}
+
+	//i.RRPos <- cur
+	i.RRPos = cur
+	return true
 }

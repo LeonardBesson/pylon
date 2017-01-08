@@ -8,7 +8,12 @@ import (
 	"regexp"
 )
 
-func TestNewPylon(t *testing.T) {
+type RoundRobinTest struct {
+	exp   string
+	count int
+}
+
+func TestNewPylonCorrect(t *testing.T) {
 	in := &Server{
 		"server1",
 		7777,
@@ -16,9 +21,9 @@ func TestNewPylon(t *testing.T) {
 			"",
 			"/microservice/",
 			[]Instance{
-				{"127.0.0.1:1111", 3, nil},
-				{"127.0.0.1:2222", 0, nil},
-				{"127.0.0.1:3333", 0, nil},
+				{"127.0.0.1:1111", 3, nil, 0},
+				{"127.0.0.1:2222", 0, nil, 0},
+				{"127.0.0.1:3333", 0, nil, 0},
 			},
 			RoundRobin,
 			300,
@@ -31,9 +36,9 @@ func TestNewPylon(t *testing.T) {
 				"/microservice/",
 			},
 			[]*Instance{
-				{"127.0.0.1:1111", 3, make(chan int, 300)},
-				{"127.0.0.1:2222", 1, make(chan int, 300)},
-				{"127.0.0.1:3333", 1, make(chan int, 300)},
+				{"127.0.0.1:1111", 3, make(chan int, 300), 0},
+				{"127.0.0.1:2222", 1, make(chan int, 300), 0},
+				{"127.0.0.1:3333", 1, make(chan int, 300), 0},
 			},
 			RoundRobin,
 			0,
@@ -69,7 +74,7 @@ func TestNewPylon(t *testing.T) {
 	}
 }
 
-func TestNewPylon2(t *testing.T) {
+func TestNewPylonWrong(t *testing.T) {
 	wrong := &Server{
 		"server1",
 		7777,
@@ -77,9 +82,9 @@ func TestNewPylon2(t *testing.T) {
 			"",
 			"",
 			[]Instance{
-				{"127.0.0.1:1111", 3, nil},
-				{"127.0.0.1:2222", 0, nil},
-				{"127.0.0.1:3333", 0, nil},
+				{"127.0.0.1:1111", 3, nil, 0},
+				{"127.0.0.1:2222", 0, nil, 0},
+				{"127.0.0.1:3333", 0, nil, 0},
 			},
 			RoundRobin,
 			300,
@@ -135,45 +140,89 @@ func TestRegexRoute_Type(t *testing.T) {
 	}
 }
 
-func TestNextRoundRobinInstIdx(t *testing.T)  {
-	m := &MicroService{
-		PrefixRoute{
+func TestNextRoundRobinInstIdxNonWeighted(t *testing.T) {
+	in := &Server{
+		"server1",
+		7777,
+		[]Service{{
+			"",
 			"/microservice/",
-		},
-		[]*Instance{
-			{"127.0.0.1:1111", 1, make(chan int, 300)},
-			{"127.0.0.1:2222", 1, make(chan int, 300)},
-			{"127.0.0.1:3333", 1, make(chan int, 300)},
-		},
-		RoundRobin,
-		0,
-		make(map[int]bool, 3),
-		make(chan int, 300),
-		0.0,
-		&sync.RWMutex{},
-	}
-	
-	idx := m.nextRoundRobinInstIdx()
-	if idx < 0 || idx > 2 {
-		t.FailNow()
+			[]Instance{
+				{"127.0.0.1:1111", 0, nil, 0},
+				{"127.0.0.1:2222", 0, nil, 0},
+				{"127.0.0.1:3333", 0, nil, 0},
+			},
+			RoundRobin,
+			300,
+		}},
 	}
 
-	if m.Instances[idx].Host != "127.0.0.1:2222" {
-		t.FailNow()
+	p, err := NewPylon(in)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
 
-	idx = m.nextRoundRobinInstIdx()
-	if m.Instances[idx].Host != "127.0.0.1:3333" {
-		t.FailNow()
+	m := p.Services[0]
+	tests := []RoundRobinTest{
+		{"127.0.0.1:1111", 1},
+		{"127.0.0.1:2222", 1},
+		{"127.0.0.1:3333", 1},
 	}
 
-	idx = m.nextRoundRobinInstIdx()
-	if m.Instances[idx].Host != "127.0.0.1:1111" {
-		t.FailNow()
+	if !validateRRTests(tests, m) {
+		t.Fail()
+	}
+}
+
+func TestNextRoundRobinInstIdxWeighted(t *testing.T) {
+	in := &Server{
+		"server1",
+		7777,
+		[]Service{{
+			"",
+			"/microservice/",
+			[]Instance{
+				{"127.0.0.1:1111", 2, nil, 0},
+				{"127.0.0.1:2222", 0, nil, 0},
+				{"127.0.0.1:3333", 3, nil, 0},
+				{"127.0.0.1:4444", 5, nil, 0},
+			},
+			RoundRobin,
+			300,
+		}},
 	}
 
-	idx = m.nextRoundRobinInstIdx()
-	if m.Instances[idx].Host != "127.0.0.1:2222" {
-		t.FailNow()
+	p, err := NewPylon(in)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
+	m := p.Services[0]
+
+	tests := []RoundRobinTest{
+		{"127.0.0.1:1111", 2},
+		{"127.0.0.1:2222", 1},
+		{"127.0.0.1:3333", 3},
+		{"127.0.0.1:4444", 5},
+	}
+
+	if !validateRRTests(tests, m) {
+		t.Fail()
+	}
+}
+
+func validateRRTests(tests []RoundRobinTest, m *MicroService) bool {
+	for _, test := range tests {
+		for i := 0; i < test.count; i++ {
+			idx := m.nextRoundRobinInstIdx()
+			if idx < 0 || idx > len(m.Instances) - 1 {
+				return false
+			}
+
+			if m.Instances[idx].Host != test.exp {
+				return false
+			}
+		}
+	}
+
+	return true
 }

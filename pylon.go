@@ -175,11 +175,16 @@ func NewPylon(s *Server) (*Pylon, error) {
 				weight = inst.Weight
 			}
 			weightSum += weight
-			m.Instances = append(m.Instances, &Instance{
+
+			newInst := &Instance{
 				inst.Host,
 				weight,
 				make(chan int, maxCon),
-			})
+				//make(chan int, 1),
+				0,
+			}
+			//newInst.RRPos <- 0
+			m.Instances = append(m.Instances, newInst)
 		}
 		m.Strategy = ser.Strategy
 		m.BlackList = make(map[int]bool, len(ser.Instances))
@@ -344,12 +349,13 @@ func (m *MicroService) getInstance() (*Instance, int, error) {
 
 func (m *MicroService) nextRoundRobinInstIdx() int {
 	//m.Mutex.Lock()
-	m.LastUsedIdx++
-	if m.LastUsedIdx >= len(m.Instances) {
-		m.LastUsedIdx = 0
+	for !m.Instances[m.LastUsedIdx].isRoundRobinPicked() {
+		m.LastUsedIdx++
+		if m.LastUsedIdx >= len(m.Instances) {
+			m.LastUsedIdx = 0
+		}
 	}
 	//m.Mutex.Unlock()
-
 	return m.LastUsedIdx
 }
 
