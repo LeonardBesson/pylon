@@ -52,13 +52,13 @@ import (
 	"math/rand"
 	"net"
 	"time"
-	"net/http/httputil"
 	"strings"
 )
 
 var (
 	dialer = &net.Dialer{Timeout: 1 * time.Second}
 	NoService error = errors.New("Service has no route")
+	proxyPool *ProxyPool
 )
 
 type RouteType int8
@@ -72,6 +72,7 @@ const (
 
 	defaultMaxCon = 100000
 	defaultHealthCheckInterval = 20
+	defaultProxyPoolCapacity = defaultMaxCon
 )
 
 type Pylon struct {
@@ -133,8 +134,23 @@ func ListenAndServe(p string) error {
 
 func ListenAndServeConfig(c *Config) error {
 	wg := sync.WaitGroup{}
-	wg.Add(len(c.Servers))
 
+	// Initializing the pool before hand in case one server
+	// Gets a request as soon as it's served
+	poolSize := 0
+	for _, s := range c.Servers {
+		for _, ser := range s.Services {
+			if ser.MaxCon == 0 {
+				poolSize += defaultMaxCon
+			} else {
+				poolSize += ser.MaxCon
+			}
+		}
+	}
+	fmt.Println("Pool size is", poolSize)
+	proxyPool = NewProxyPool(poolSize)
+
+	wg.Add(len(c.Servers))
 	for _, s := range c.Servers {
 		p, err := NewPylon(&s)
 		if err != nil {
@@ -248,9 +264,6 @@ func startPeriodicHealthCheck(s *MicroService, interval time.Duration) {
 }
 
 func NewPylonHandler(p *Pylon) http.HandlerFunc {
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		route, err := getRoute(r.URL.Path, p)
 		if err != nil {
@@ -271,15 +284,14 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 		m.ReqCount <- 1
 		inst.ReqCount <- 1
 		fmt.Println("Serving new request, count: " + strconv.Itoa(len(m.ReqCount)))
-		proxy := httputil.ReverseProxy{
-			Director: func(req *http.Request) {
-				req.URL.Scheme = "http"
-				req.URL.Host = inst.Host
-			},
-			Transport: transport,
-			FlushInterval: 1 * time.Second,
+		proxy := proxyPool.Get()
+		proxy.Director = func(req *http.Request) {
+			req.URL.Scheme = "http"
+			req.URL.Host = inst.Host
 		}
 		proxy.ServeHTTP(w, r)
+		proxyPool.Put(proxy)
+
 		//r.Body.Close()
 		//m.notifyReq(false)
 		<-inst.ReqCount
