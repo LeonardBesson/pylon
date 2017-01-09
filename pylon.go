@@ -29,7 +29,11 @@ Example of a json config:
             }
           ],
           "balancing_strategy": "round_robin",
-          "max_connections": 300
+          "max_connections": 300,
+          "health_check": {
+            "enabled": true,
+            "interval": 30
+          }
         }
       ]
     }

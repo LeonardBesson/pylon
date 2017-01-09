@@ -25,7 +25,11 @@ You just need a config, for example:
             }
           ],
           "balancing_strategy": "round_robin",
-          "max_connections": 300
+          "max_connections": 300,
+          "health_check": {
+            "enabled": true,
+            "interval": 30
+          }
         }
       ]
     }
