@@ -67,6 +67,7 @@ const (
 	Prefix RouteType = iota
 
 	defaultMaxCon = 100000
+	defaultHealthCheckInterval = 20
 )
 
 type Pylon struct {
@@ -89,6 +90,7 @@ type MicroService struct {
 	// Caching the weight sum for faster retrieval
 	WeightSum   float32
 	Mutex       *sync.RWMutex
+	HealthCheck HealthCheck
 }
 
 type RegexRoute struct {
@@ -146,58 +148,70 @@ func ListenAndServeConfig(c *Config) error {
 func NewPylon(s *Server) (*Pylon, error) {
 	p := &Pylon{}
 	for _, ser := range s.Services {
-		m := MicroService{}
-		if ser.Pattern != "" {
-			reg, err := regexp.Compile(ser.Pattern)
-			if err != nil {
-				return nil, err
-			}
-			m.Route = RegexRoute{
-				Regex: reg,
-			}
-		} else if ser.Prefix != "" {
-			m.Route = PrefixRoute{
-				Prefix: ser.Prefix,
-			}
-		} else {
-			return nil, NoService
+		m, err := NewMicroService(&ser)
+		if err != nil {
+			return nil, err
 		}
-
-		maxCon := defaultMaxCon
-		if ser.MaxCon > 0 {
-			maxCon = ser.MaxCon
-		}
-
-		var weightSum float32 = 0.0
-		for _, inst := range ser.Instances {
-			var weight float32 = 1
-			if inst.Weight > 0 {
-				weight = inst.Weight
-			}
-			weightSum += weight
-
-			newInst := &Instance{
-				inst.Host,
-				weight,
-				make(chan int, maxCon),
-				//make(chan int, 1),
-				0,
-			}
-			//newInst.RRPos <- 0
-			m.Instances = append(m.Instances, newInst)
-		}
-		m.Strategy = ser.Strategy
-		m.BlackList = make(map[int]bool, len(ser.Instances))
-		m.Mutex = &sync.RWMutex{}
-		//m.LastUsedIdx = make(chan int, 1)
-		//m.LastUsedIdx <- 0
-		m.ReqCount = make(chan int, maxCon)
-		m.WeightSum = weightSum
-
-		p.Services = append(p.Services, &m)
+		p.Services = append(p.Services, m)
 	}
 
 	return p, nil
+}
+
+func NewMicroService(s *Service) (*MicroService, error) {
+	m := &MicroService{}
+	if s.Pattern != "" {
+		reg, err := regexp.Compile(s.Pattern)
+		if err != nil {
+			return nil, err
+		}
+		m.Route = RegexRoute{
+			Regex: reg,
+		}
+	} else if s.Prefix != "" {
+		m.Route = PrefixRoute{
+			Prefix: s.Prefix,
+		}
+	} else {
+		return nil, NoService
+	}
+
+	maxCon := defaultMaxCon
+	if s.MaxCon > 0 {
+		maxCon = s.MaxCon
+	}
+
+	var weightSum float32 = 0.0
+	for _, inst := range s.Instances {
+		var weight float32 = 1
+		if inst.Weight > 0 {
+			weight = inst.Weight
+		}
+		weightSum += weight
+
+		newInst := &Instance{
+			inst.Host,
+			weight,
+			make(chan int, maxCon),
+			//make(chan int, 1),
+			0,
+		}
+		//newInst.RRPos <- 0
+		m.Instances = append(m.Instances, newInst)
+	}
+	m.Strategy = s.Strategy
+	m.BlackList = make(map[int]bool, len(s.Instances))
+	m.Mutex = &sync.RWMutex{}
+	//m.LastUsedIdx = make(chan int, 1)
+	//m.LastUsedIdx <- 0
+	m.ReqCount = make(chan int, maxCon)
+	m.WeightSum = weightSum
+	m.HealthCheck = s.HealthCheck
+	if m.HealthCheck.Interval == 0 {
+		m.HealthCheck.Interval = defaultHealthCheckInterval
+	}
+
+	return m, nil
 }
 
 func serve(p *Pylon, port int) {
@@ -211,7 +225,22 @@ func serve(p *Pylon, port int) {
 		WriteTimeout:   20 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
+
+	for _, s := range p.Services {
+		if s.HealthCheck.Enabled {
+			go startPeriodicHealthCheck(s, time.Second * time.Duration(s.HealthCheck.Interval))
+		}
+	}
+
 	server.ListenAndServe()
+}
+
+func startPeriodicHealthCheck(s *MicroService, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for t := range ticker.C {
+		fmt.Println("Checking health of Service:", s.Route, " ---tick:", t)
+	}
 }
 
 func NewPylonHandler(p *Pylon) http.HandlerFunc {

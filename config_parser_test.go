@@ -50,6 +50,7 @@ func TestJSONConfigParser_Parse(t *testing.T) {
 				},
 				RoundRobin,
 				300,
+				HealthCheck{false, 0},
 			}},
 		}},
 	}
@@ -66,7 +67,7 @@ func TestJSONConfigParser_Parse(t *testing.T) {
 	}
 }
 
-func TestValidateConfig(t *testing.T)  {
+func TestValidateConfig(t *testing.T) {
 	right := &Config{
 		[]Server{{
 			"server1",
@@ -81,6 +82,7 @@ func TestValidateConfig(t *testing.T)  {
 				},
 				RoundRobin,
 				300,
+				HealthCheck{false, 0},
 			}},
 		}},
 	}
@@ -99,6 +101,7 @@ func TestValidateConfig(t *testing.T)  {
 				},
 				"wrong_strategy",
 				0,
+				HealthCheck{false, 0},
 			}},
 		}},
 	}
@@ -114,22 +117,23 @@ func TestValidateConfig(t *testing.T)  {
 	}
 }
 
-func TestValidateServer(t *testing.T)  {
+func TestValidateServer(t *testing.T) {
 	right := &Server{
-			"server1",
-			7777,
-			[]Service{{
-				"",
-				"/microservice/",
-				[]Instance{
-					{"127.0.0.1:1111", 3, nil, 0},
-					{"127.0.0.1:2222", 0, nil, 0},
-					{"127.0.0.1:3333", 0, nil, 0},
-				},
-				RoundRobin,
-				300,
-			}},
-		}
+		"server1",
+		7777,
+		[]Service{{
+			"",
+			"/microservice/",
+			[]Instance{
+				{"127.0.0.1:1111", 3, nil, 0},
+				{"127.0.0.1:2222", 0, nil, 0},
+				{"127.0.0.1:3333", 0, nil, 0},
+			},
+			RoundRobin,
+			300,
+			HealthCheck{false, 0},
+		}},
+	}
 
 	wrong := &Server{
 		"server1",
@@ -138,12 +142,13 @@ func TestValidateServer(t *testing.T)  {
 			"**/regex_route",
 			"",
 			[]Instance{
-				{"12.0.1:1111",    3, nil, 0},
+				{"12.0.1:1111", 3, nil, 0},
 				{"127.0.0.1:2222", 0, nil, 0},
 				{"127.0.0.1:3333", 0, nil, 0},
 			},
 			"wrong_strategy",
 			0,
+			HealthCheck{false, 0},
 		}},
 	}
 

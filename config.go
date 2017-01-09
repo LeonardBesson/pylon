@@ -19,11 +19,17 @@ type Server struct {
 }
 
 type Service struct {
-	Pattern   string     `json:"route_pattern"`
-	Prefix    string     `json:"route_prefix"`
-	Instances []Instance `json:"instances"`
-	Strategy  Strategy   `json:"balancing_strategy"`
-	MaxCon    int        `json:"max_connections"`
+	Pattern     string      `json:"route_pattern"`
+	Prefix      string      `json:"route_prefix"`
+	Instances   []Instance  `json:"instances"`
+	Strategy    Strategy    `json:"balancing_strategy"`
+	MaxCon      int         `json:"max_connections"`
+	HealthCheck HealthCheck `json:"health_check"`
+}
+
+type HealthCheck struct {
+	Enabled  bool `json:"enabled"`
+	Interval int  `json:"interval"`
 }
 
 type Instance struct {
