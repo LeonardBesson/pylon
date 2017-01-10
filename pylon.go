@@ -56,7 +56,7 @@ import (
 )
 
 var (
-	dialer = &net.Dialer{Timeout: 1 * time.Second}
+	dialer = &net.Dialer{Timeout: dialerTimeout}
 	NoService error = errors.New("Service has no route")
 	proxyPool *ProxyPool
 )
@@ -73,6 +73,9 @@ const (
 	defaultMaxCon = 100000
 	defaultHealthCheckInterval = 20
 	defaultProxyPoolCapacity = defaultMaxCon
+
+	flushInterval = time.Second * 1
+	dialerTimeout = time.Second * 3
 )
 
 type Pylon struct {
@@ -141,7 +144,7 @@ func ListenAndServeConfig(c *Config) error {
 	for _, s := range c.Servers {
 		for _, ser := range s.Services {
 			if ser.MaxCon == 0 {
-				poolSize += defaultMaxCon
+				poolSize += defaultProxyPoolCapacity
 			} else {
 				poolSize += ser.MaxCon
 			}
@@ -255,11 +258,23 @@ func serve(p *Pylon, port int) {
 	server.ListenAndServe()
 }
 
-func startPeriodicHealthCheck(s *MicroService, interval time.Duration) {
+func startPeriodicHealthCheck(m *MicroService, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for t := range ticker.C {
-		fmt.Println("Checking health of Service:", s.Route, " ---tick:", t)
+		fmt.Println("Checking health of Service:", m.Route, " ---tick:", t)
+		handleHealthCheck(m)
+	}
+}
+
+func handleHealthCheck(m *MicroService) {
+	for i, inst := range m.Instances {
+		_, err := dialer.Dial("tcp", inst.Host)
+		if err != nil {
+			m.blackList(i, true)
+		} else {
+			m.blackList(i, false)
+		}
 	}
 }
 
@@ -458,9 +473,13 @@ func (m *MicroService) notifyReq(in bool) {
 	}
 }
 
-func (m *MicroService) blackList(idx int) {
+func (m *MicroService) blackList(idx int, blacklist bool) {
 	m.Mutex.Lock()
-	m.BlackList[idx] = blacklisted
+	if blacklist {
+		m.BlackList[idx] = blacklisted
+	} else {
+		delete(m.BlackList, idx)
+	}
 	m.Mutex.Unlock()
 }
 

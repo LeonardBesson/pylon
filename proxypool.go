@@ -3,13 +3,7 @@ package pylon
 import (
 	"net/http/httputil"
 	"net/http"
-	"time"
 )
-
-type Pool interface {
-	Get() interface{}
-	Put() interface{}
-}
 
 type ProxyPool struct {
 	pool chan *httputil.ReverseProxy
@@ -43,8 +37,7 @@ func NewProxy() *httputil.ReverseProxy {
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 		},
-		FlushInterval: 1 * time.Second,
+		FlushInterval: flushInterval,
 	}
-
 }
 
