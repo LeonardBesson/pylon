@@ -267,15 +267,28 @@ func startPeriodicHealthCheck(m *MicroService, interval time.Duration) {
 	}
 }
 
-func handleHealthCheck(m *MicroService) {
+func handleHealthCheck(m *MicroService) bool {
+	change := false
+	//var weightSum float32 = 0.0
 	for i, inst := range m.Instances {
 		_, err := dialer.Dial("tcp", inst.Host)
 		if err != nil {
-			m.blackList(i, true)
+			if !m.isBlacklisted(i) {
+				m.blackList(i, true)
+				change = true
+			}
 		} else {
-			m.blackList(i, false)
+			if m.isBlacklisted(i) {
+				m.blackList(i, false)
+				change = true
+			}
+			//weightSum += inst.Weight
 		}
 	}
+	//m.Mutex.Lock()
+	//m.WeightSum = weightSum
+	//m.Mutex.Unlock()
+	return change
 }
 
 func NewPylonHandler(p *Pylon) http.HandlerFunc {
@@ -290,7 +303,7 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		inst, err := m.getLoadBalancedInst()
+		inst, _, err := m.getLoadBalancedInstance()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -300,10 +313,7 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 		inst.ReqCount <- 1
 		fmt.Println("Serving new request, count: " + strconv.Itoa(len(m.ReqCount)))
 		proxy := proxyPool.Get()
-		proxy.Director = func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = inst.Host
-		}
+		SetUpProxy(proxy, m, inst.Host)
 		proxy.ServeHTTP(w, r)
 		proxyPool.Put(proxy)
 
@@ -353,7 +363,13 @@ func (p *Pylon) microFromRoute(route string) *MicroService {
 	return nil
 }
 
-func (m *MicroService) getLoadBalancedInst() (*Instance, error) {
+/*func microFromInstHost(host string) {
+	for _,s := range {
+
+	}
+}*/
+
+/*func (m *MicroService) getLoadBalancedInst() (*Instance, error) {
 	if m == nil {
 		return nil, errors.New("No service")
 	}
@@ -376,9 +392,9 @@ func (m *MicroService) getLoadBalancedInst() (*Instance, error) {
 		return inst, nil
 	}
 	return nil, fmt.Errorf("No endpoint available for %+v\n", m)
-}
+}*/
 
-func (m *MicroService) getInstance() (*Instance, int, error) {
+func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	instCount := len(m.Instances)
 	if instCount == 0 {
 		return nil, -1, errors.New("Microservice has no instances")
@@ -401,8 +417,9 @@ func (m *MicroService) getInstance() (*Instance, int, error) {
 	}
 
 	if m.isBlacklisted(idx) {
-		return m.getInstance()
+		return m.getLoadBalancedInstance()
 	} else {
+		fmt.Println("Instance is " + m.Instances[idx].Host)
 		return m.Instances[idx], idx, nil
 	}
 }
@@ -481,6 +498,14 @@ func (m *MicroService) blackList(idx int, blacklist bool) {
 		delete(m.BlackList, idx)
 	}
 	m.Mutex.Unlock()
+}
+
+func (m *MicroService) blackListHost(host string, blacklist bool) {
+	for idx, inst := range m.Instances {
+		if inst.Host == host {
+			m.blackList(idx, blacklist)
+		}
+	}
 }
 
 func (m *MicroService) isBlacklisted(idx int) bool {

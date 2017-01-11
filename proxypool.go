@@ -34,10 +34,16 @@ func (p *ProxyPool) Put(rp *httputil.ReverseProxy) {
 
 func NewProxy() *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-		},
+		Transport: NewPylonTransport(),
 		FlushInterval: flushInterval,
 	}
+}
+
+func SetUpProxy(proxy *httputil.ReverseProxy, m *MicroService, host string) {
+	proxy.Director = func(req *http.Request) {
+		req.URL.Scheme = "http"
+		req.URL.Host = host
+	}
+	proxy.Transport.(*PylonTransport).setMicroService(m)
 }
 
