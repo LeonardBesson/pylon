@@ -29,7 +29,7 @@ func (pt *PylonTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, err
 		}
 		req.URL.Host = inst.Host
-		fmt.Println("Trying with new URL:", req.URL)
+		fmt.Println("Trying with new Instance:", inst.Host)
 		return pt.RoundTrip(req)
 	}
 

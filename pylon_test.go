@@ -215,10 +215,59 @@ func TestNextRoundRobinInstIdxWeighted(t *testing.T) {
 	}
 }
 
+func TestLeastConnected(t *testing.T) {
+	in := &Server{
+		"server1",
+		7777,
+		[]Service{{
+			"",
+			"/microservice/",
+			[]Instance{
+				{"127.0.0.1:1111", 0, nil, 0},
+				{"127.0.0.1:2222", 0, nil, 0},
+				{"127.0.0.1:3333", 0, nil, 0},
+				{"127.0.0.1:4444", 0, nil, 0},
+			},
+			LeastConnected,
+			300,
+			HealthCheck{false, 0},
+		}},
+	}
+
+	p, err := NewPylon(in)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	m := p.Services[0]
+	m.Instances[1].ReqCount <- 1
+
+	m.Instances[2].ReqCount <- 1
+	m.Instances[2].ReqCount <- 1
+
+	m.Instances[3].ReqCount <- 1
+	m.Instances[3].ReqCount <- 1
+	m.Instances[3].ReqCount <- 1
+
+	for i := range m.Instances  {
+		_, idx, err := m.getLoadBalancedInstance()
+		if err != nil {
+			t.FailNow()
+		}
+		if idx != i {
+			t.FailNow()
+		}
+		m.Instances[i] = nil
+	}
+}
+
 func validateRRTests(tests []RoundRobinTest, m *MicroService) bool {
 	for _, test := range tests {
 		for i := 0; i < test.count; i++ {
-			idx := m.nextRoundRobinInstIdx()
+			//idx := m.nextRoundRobinInstIdx()
+			_, idx, err := m.getLoadBalancedInstance()
+			if err != nil {
+				return false
+			}
 			if idx < 0 || idx > len(m.Instances) - 1 {
 				return false
 			}

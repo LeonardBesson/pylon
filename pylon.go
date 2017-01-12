@@ -308,6 +308,8 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		fmt.Println("Instance is " + inst.Host)
+
 		//m.notifyReq(true)
 		m.ReqCount <- 1
 		inst.ReqCount <- 1
@@ -404,43 +406,76 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 		return nil, -1, errors.New("All instances are dead")
 	}
 
-	var idx int
-	switch m.Strategy {
-	case RoundRobin:
-		idx = m.nextRoundRobinInstIdx()
-	case LeastConnected:
-		idx = m.getLeastConInstIdx()
-	case Random:
-		idx = m.getRandomInstIdx()
-	default:
-		return nil, -1, errors.New("Unexpected strategy " + string(m.Strategy))
-	}
+	instances := make([]*Instance, len(m.Instances))
+	copy(instances, m.Instances)
 
-	if m.isBlacklisted(idx) {
-		return m.getLoadBalancedInstance()
-	} else {
-		fmt.Println("Instance is " + m.Instances[idx].Host)
-		return m.Instances[idx], idx, nil
+	for {
+		idx, err := getLoadBalancedInst(instances, m.Strategy, m.LastUsedIdx)
+		if err != nil {
+			return nil, -1, err
+		}
+
+		m.LastUsedIdx = idx
+		if m.isBlacklisted(idx) {
+			instances[idx] = nil
+		} else {
+			return instances[idx], idx, nil
+		}
 	}
 }
 
-func (m *MicroService) nextRoundRobinInstIdx() int {
+func getLoadBalancedInst(instances []*Instance, s Strategy, index int) (int, error) {
+	fmt.Println("Instances are", instances)
+	if len(instances) == 0 {
+		return -1, errors.New("All instances are dead")
+	}
+
+	var idx int = -1
+	var err error = nil
+	switch s {
+	case RoundRobin:
+		idx, err = nextRoundRobinInstIdx(instances, index)
+	case LeastConnected:
+		idx = getLeastConInstIdx(instances)
+	case Random:
+		idx = getRandomInstIdx(instances)
+	default:
+		return -1, errors.New("Unexpected strategy " + string(s))
+	}
+
+	return idx, err
+}
+
+func nextRoundRobinInstIdx(instances []*Instance, idx int) (int, error) {
 	//m.Mutex.Lock()
-	for !m.Instances[m.LastUsedIdx].isRoundRobinPicked() {
-		m.LastUsedIdx++
-		if m.LastUsedIdx >= len(m.Instances) {
-			m.LastUsedIdx = 0
+	var count = 1
+	var instCount = len(instances)
+	for {
+		inst := instances[idx]
+		if inst != nil && inst.isRoundRobinPicked() {
+			break
+		}
+		idx++
+		count++
+		if count > instCount {
+			return -1, errors.New("No instance can be round robin picked")
+		}
+		if idx >= instCount {
+			idx = 0
 		}
 	}
 	//m.Mutex.Unlock()
-	return m.LastUsedIdx
+	return idx, nil
 }
 
-func (m *MicroService) getLeastConInstIdx() int {
+func getLeastConInstIdx(instances []*Instance) int {
 	minLoad := maxFloat32
 	idx := 0
 
-	for i, inst := range m.Instances {
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
 		load := float32(len(inst.ReqCount)) / inst.Weight
 		if load < minLoad {
 			minLoad = load
@@ -451,10 +486,21 @@ func (m *MicroService) getLeastConInstIdx() int {
 	return idx
 }
 
-func (m *MicroService) getRandomInstIdx() int {
-	r := rand.Float32() * m.WeightSum
+func getRandomInstIdx(instances []*Instance) int {
+	var weightSum float32 = 0.0
+	for _, inst := range instances {
+		if inst == nil {
+			continue
+		}
+		weightSum += inst.Weight
+	}
 
-	for i, inst := range m.Instances {
+	r := rand.Float32() * weightSum
+
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
 		r -= inst.Weight
 		if r < 0 {
 			return i
