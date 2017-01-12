@@ -250,6 +250,9 @@ func serve(p *Pylon, port int) {
 	}
 
 	for _, s := range p.Services {
+		// Do an initial health check
+		go handleHealthCheck(s)
+
 		if s.HealthCheck.Enabled {
 			go startPeriodicHealthCheck(s, time.Second * time.Duration(s.HealthCheck.Interval))
 		}
@@ -364,37 +367,6 @@ func (p *Pylon) microFromRoute(route string) *MicroService {
 	}
 	return nil
 }
-
-/*func microFromInstHost(host string) {
-	for _,s := range {
-
-	}
-}*/
-
-/*func (m *MicroService) getLoadBalancedInst() (*Instance, error) {
-	if m == nil {
-		return nil, errors.New("No service")
-	}
-
-	for {
-		inst, _, err := m.getInstance()
-		if err != nil {
-			return nil, err
-		}
-
-		//fmt.Println("Dialing instance " + inst.Host + "...")
-		//_, err = dialer.Dial("tcp", inst.Host)
-		//if err != nil {
-		//	m.blackList(idx)
-		//	fmt.Println("Could not contact instance " + inst.Host)
-		//	continue
-		//}
-
-		fmt.Println("Instance is " + inst.Host)
-		return inst, nil
-	}
-	return nil, fmt.Errorf("No endpoint available for %+v\n", m)
-}*/
 
 func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	instCount := len(m.Instances)
