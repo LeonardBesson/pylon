@@ -371,7 +371,7 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	}
 
 	if len(m.BlackList) == instCount {
-		return nil, -1, errors.New("No instance is available")
+		return nil, -1, errors.New("All instances are dead")
 	}
 
 	instances := make([]*Instance, instCount)
@@ -380,10 +380,6 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	var idx int
 	var err error
 	for {
-		if len(instances) == 0 {
-			return nil, -1, errors.New("All instances are dead")
-		}
-
 		switch m.Strategy {
 		case RoundRobin:
 			idx, err = nextRoundRobinInstIdx(instances, m.LastUsedIdx.Get())
