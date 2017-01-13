@@ -21,9 +21,9 @@ func TestNewPylonCorrect(t *testing.T) {
 			"",
 			"/microservice/",
 			[]Instance{
-				{"127.0.0.1:1111", 3, nil, 0},
-				{"127.0.0.1:2222", 0, nil, 0},
-				{"127.0.0.1:3333", 0, nil, 0},
+				{"127.0.0.1:1111", 3, nil, NewSharedInt(0)},
+				{"127.0.0.1:2222", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:3333", 0, nil, NewSharedInt(0)},
 			},
 			RoundRobin,
 			300,
@@ -37,12 +37,12 @@ func TestNewPylonCorrect(t *testing.T) {
 				"/microservice/",
 			},
 			[]*Instance{
-				{"127.0.0.1:1111", 3, make(chan int, 300), 0},
-				{"127.0.0.1:2222", 1, make(chan int, 300), 0},
-				{"127.0.0.1:3333", 1, make(chan int, 300), 0},
+				{"127.0.0.1:1111", 3, make(chan int, 300), NewSharedInt(0)},
+				{"127.0.0.1:2222", 1, make(chan int, 300), NewSharedInt(0)},
+				{"127.0.0.1:3333", 1, make(chan int, 300), NewSharedInt(0)},
 			},
 			RoundRobin,
-			0,
+			NewSharedInt(0),
 			make(map[int]bool, 3),
 			make(chan int, 300),
 			0.0,
@@ -84,9 +84,9 @@ func TestNewPylonWrong(t *testing.T) {
 			"",
 			"",
 			[]Instance{
-				{"127.0.0.1:1111", 3, nil, 0},
-				{"127.0.0.1:2222", 0, nil, 0},
-				{"127.0.0.1:3333", 0, nil, 0},
+				{"127.0.0.1:1111", 3, nil, NewSharedInt(0)},
+				{"127.0.0.1:2222", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:3333", 0, nil, NewSharedInt(0)},
 			},
 			RoundRobin,
 			300,
@@ -151,9 +151,9 @@ func TestNextRoundRobinInstIdxNonWeighted(t *testing.T) {
 			"",
 			"/microservice/",
 			[]Instance{
-				{"127.0.0.1:1111", 0, nil, 0},
-				{"127.0.0.1:2222", 0, nil, 0},
-				{"127.0.0.1:3333", 0, nil, 0},
+				{"127.0.0.1:1111", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:2222", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:3333", 0, nil, NewSharedInt(0)},
 			},
 			RoundRobin,
 			300,
@@ -186,10 +186,10 @@ func TestNextRoundRobinInstIdxWeighted(t *testing.T) {
 			"",
 			"/microservice/",
 			[]Instance{
-				{"127.0.0.1:1111", 2, nil, 0},
-				{"127.0.0.1:2222", 0, nil, 0},
-				{"127.0.0.1:3333", 3, nil, 0},
-				{"127.0.0.1:4444", 5, nil, 0},
+				{"127.0.0.1:1111", 2, nil, NewSharedInt(0)},
+				{"127.0.0.1:2222", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:3333", 3, nil, NewSharedInt(0)},
+				{"127.0.0.1:4444", 5, nil, NewSharedInt(0)},
 			},
 			RoundRobin,
 			300,
@@ -223,10 +223,10 @@ func TestLeastConnected(t *testing.T) {
 			"",
 			"/microservice/",
 			[]Instance{
-				{"127.0.0.1:1111", 0, nil, 0},
-				{"127.0.0.1:2222", 0, nil, 0},
-				{"127.0.0.1:3333", 0, nil, 0},
-				{"127.0.0.1:4444", 0, nil, 0},
+				{"127.0.0.1:1111", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:2222", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:3333", 0, nil, NewSharedInt(0)},
+				{"127.0.0.1:4444", 0, nil, NewSharedInt(0)},
 			},
 			LeastConnected,
 			300,
@@ -263,7 +263,6 @@ func TestLeastConnected(t *testing.T) {
 func validateRRTests(tests []RoundRobinTest, m *MicroService) bool {
 	for _, test := range tests {
 		for i := 0; i < test.count; i++ {
-			//idx := m.nextRoundRobinInstIdx()
 			_, idx, err := m.getLoadBalancedInstance()
 			if err != nil {
 				return false

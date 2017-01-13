@@ -3,9 +3,9 @@ package pylon
 type Strategy string
 
 const (
-	RoundRobin Strategy = "round_robin"
-	LeastConnected Strategy = "least_connected"
-	Random Strategy = "random"
+	RoundRobin 	Strategy = "round_robin"
+	LeastConnected  Strategy = "least_connected"
+	Random 		Strategy = "random"
 )
 
 type Config struct {
@@ -36,22 +36,18 @@ type Instance struct {
 	Host     string  `json:"host"`
 	Weight   float32 `json:"weight"`
 	ReqCount chan int
-	//RRPos	 chan int
-	RRPos	 int
+	RRPos	 SharedInt
 }
 
 func (i *Instance) isRoundRobinPicked() bool {
-	//cur := <-i.RRPos
-	cur := i.RRPos
-	cur++
-	if cur > int(i.Weight) {
-		cur = 0
-		//i.RRPos <- cur
-		i.RRPos = cur
+	i.RRPos.Lock()
+	defer i.RRPos.Unlock()
+
+	i.RRPos.value++
+	if i.RRPos.value > int(i.Weight) {
+		i.RRPos.value = 0
 		return false
 	}
 
-	//i.RRPos <- cur
-	i.RRPos = cur
 	return true
 }

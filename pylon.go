@@ -91,8 +91,7 @@ type MicroService struct {
 	Route       Route
 	Instances   []*Instance
 	Strategy    Strategy
-	//LastUsedIdx chan int
-	LastUsedIdx int
+	LastUsedIdx SharedInt
 	BlackList   map[int]bool
 	ReqCount    chan int
 	// Caching the weight sum for faster retrieval
@@ -216,17 +215,14 @@ func NewMicroService(s *Service) (*MicroService, error) {
 			inst.Host,
 			weight,
 			make(chan int, maxCon),
-			//make(chan int, 1),
-			0,
+			NewSharedInt(0),
 		}
-		//newInst.RRPos <- 0
 		m.Instances = append(m.Instances, newInst)
 	}
 	m.Strategy = s.Strategy
-	m.BlackList = make(map[int]bool, len(s.Instances))
 	m.Mutex = &sync.RWMutex{}
-	//m.LastUsedIdx = make(chan int, 1)
-	//m.LastUsedIdx <- 0
+	m.BlackList = make(map[int]bool, len(s.Instances))
+	m.LastUsedIdx = NewSharedInt(0)
 	m.ReqCount = make(chan int, maxCon)
 	m.WeightSum = weightSum
 	m.HealthCheck = s.HealthCheck
@@ -313,17 +309,15 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 		}
 		fmt.Println("Instance is " + inst.Host)
 
-		//m.notifyReq(true)
 		m.ReqCount <- 1
 		inst.ReqCount <- 1
+
 		fmt.Println("Serving new request, count: " + strconv.Itoa(len(m.ReqCount)))
 		proxy := proxyPool.Get()
 		SetUpProxy(proxy, m, inst.Host)
 		proxy.ServeHTTP(w, r)
 		proxyPool.Put(proxy)
 
-		//r.Body.Close()
-		//m.notifyReq(false)
 		<-inst.ReqCount
 		<-m.ReqCount
 		fmt.Println("Request served, count: " + strconv.Itoa(len(m.ReqCount)))
@@ -347,6 +341,7 @@ func getRoute(path string, p *Pylon) (string, error) {
 
 		}
 	}
+
 	return "no_route", errors.New("No route available for path " + path)
 }
 
@@ -365,6 +360,7 @@ func (p *Pylon) microFromRoute(route string) *MicroService {
 			return nil
 		}
 	}
+
 	return nil
 }
 
@@ -375,68 +371,67 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	}
 
 	if len(m.BlackList) == instCount {
-		return nil, -1, errors.New("All instances are dead")
+		return nil, -1, errors.New("No instance is available")
 	}
 
-	instances := make([]*Instance, len(m.Instances))
+	instances := make([]*Instance, instCount)
 	copy(instances, m.Instances)
 
+	var idx int
+	var err error
 	for {
-		idx, err := getLoadBalancedInst(instances, m.Strategy, m.LastUsedIdx)
+		if len(instances) == 0 {
+			return nil, -1, errors.New("All instances are dead")
+		}
+
+		switch m.Strategy {
+		case RoundRobin:
+			idx, err = nextRoundRobinInstIdx(instances, m.LastUsedIdx.Get())
+		case LeastConnected:
+			idx = getLeastConInstIdx(instances)
+		case Random:
+			idx = getRandomInstIdx(instances)
+		default:
+			return nil, -1, errors.New("Unexpected strategy " + string(m.Strategy))
+		}
+
 		if err != nil {
 			return nil, -1, err
 		}
 
-		m.LastUsedIdx = idx
 		if m.isBlacklisted(idx) {
 			instances[idx] = nil
 		} else {
+			m.LastUsedIdx.Set(idx)
 			return instances[idx], idx, nil
 		}
 	}
 }
 
-func getLoadBalancedInst(instances []*Instance, s Strategy, index int) (int, error) {
-	fmt.Println("Instances are", instances)
-	if len(instances) == 0 {
-		return -1, errors.New("All instances are dead")
-	}
-
-	var idx int = -1
-	var err error = nil
-	switch s {
-	case RoundRobin:
-		idx, err = nextRoundRobinInstIdx(instances, index)
-	case LeastConnected:
-		idx = getLeastConInstIdx(instances)
-	case Random:
-		idx = getRandomInstIdx(instances)
-	default:
-		return -1, errors.New("Unexpected strategy " + string(s))
-	}
-
-	return idx, err
-}
-
 func nextRoundRobinInstIdx(instances []*Instance, idx int) (int, error) {
-	//m.Mutex.Lock()
-	var count = 1
-	var instCount = len(instances)
+	tryCount := 1
+	instCount := len(instances)
+	lastNonNil := -1
 	for {
 		inst := instances[idx]
-		if inst != nil && inst.isRoundRobinPicked() {
-			break
+		if inst != nil {
+			if inst.isRoundRobinPicked() {
+				break
+			}
+			lastNonNil = idx
 		}
 		idx++
-		count++
-		if count > instCount {
+		tryCount++
+		if tryCount > instCount {
+			if lastNonNil != -1 {
+				return lastNonNil, nil
+			}
 			return -1, errors.New("No instance can be round robin picked")
 		}
 		if idx >= instCount {
 			idx = 0
 		}
 	}
-	//m.Mutex.Unlock()
 	return idx, nil
 }
 
@@ -481,24 +476,6 @@ func getRandomInstIdx(instances []*Instance) int {
 
 	return 0
 }
-
-/*func (m *MicroService) nextInst() int {
-	cur := <- m.LastUsedIdx
-	cur++
-	if cur >= len(m.Instances) {
-		cur = 0
-	}
-	m.LastUsedIdx <- cur
-	return cur
-}*/
-
-/*func (m *MicroService) notifyReq(in bool) {
-	if in {
-		m.ReqCount++
-	} else {
-		m.ReqCount--
-	}
-}*/
 
 func (m *MicroService) notifyReq(in bool) {
 	if in {
