@@ -40,6 +40,7 @@ func TestJSONConfigParser_Parse(t *testing.T) {
 		[]Server{{
 			"server1",
 			7777,
+			"",
 			[]Service{{
 				"",
 				"/microservice/",
@@ -72,6 +73,7 @@ func TestValidateConfig(t *testing.T) {
 		[]Server{{
 			"server1",
 			7777,
+			"",
 			[]Service{{
 				"",
 				"/microservice/",
@@ -91,6 +93,7 @@ func TestValidateConfig(t *testing.T) {
 		[]Server{{
 			"server1",
 			7777,
+			"",
 			[]Service{{
 				"**/regex_route",
 				"",
@@ -121,6 +124,7 @@ func TestValidateServer(t *testing.T) {
 	right := &Server{
 		"server1",
 		7777,
+		"",
 		[]Service{{
 			"",
 			"/microservice/",
@@ -138,6 +142,7 @@ func TestValidateServer(t *testing.T) {
 	wrong := &Server{
 		"server1",
 		-1,
+		"",
 		[]Service{{
 			"**/regex_route",
 			"",

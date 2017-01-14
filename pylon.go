@@ -53,6 +53,7 @@ import (
 	"net"
 	"time"
 	"strings"
+	"html/template"
 )
 
 var (
@@ -158,9 +159,13 @@ func ListenAndServeConfig(c *Config) error {
 		if err != nil {
 			return err
 		}
+		healthRoute := defaultHealthRoute
+		if s.HealthRoute != "" {
+			healthRoute = s.HealthRoute
+		}
 		go func() {
 			defer wg.Done()
-			serve(p, s.Port)
+			serve(p, s.Port, healthRoute)
 		}()
 	}
 	wg.Wait()
@@ -233,9 +238,10 @@ func NewMicroService(s *Service) (*MicroService, error) {
 	return m, nil
 }
 
-func serve(p *Pylon, port int) {
+func serve(p *Pylon, port int, healthRoute string) {
 	mux := http.NewServeMux()
 	mux.Handle("/", NewPylonHandler(p))
+	mux.Handle(healthRoute, NewPylonHealthHandler(p))
 	fmt.Println("Serving on " + strconv.Itoa(port))
 	server := &http.Server{
 		Addr:           ":" + strconv.Itoa(port),
@@ -321,6 +327,18 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 		<-inst.ReqCount
 		<-m.ReqCount
 		fmt.Println("Request served, count: " + strconv.Itoa(len(m.ReqCount)))
+	}
+}
+
+func NewPylonHealthHandler(p *Pylon) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		t, err := template.New("PylonHealthTemplate").Parse(pylonTemplate)
+		if err != nil {
+			errorLogger(err.Error())
+		}
+		if err := t.Execute(w, getRenders(p)); err != nil {
+			errorLogger("Could not render the HTML template")
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 )
 
 var (
@@ -47,9 +48,12 @@ func (p *JSONConfigParser) Parse(r io.Reader) (c *Config, err error) {
 }
 
 func validateConfig(c *Config) (error) {
-	for _, s := range c.Servers {
+	for i, s := range c.Servers {
 		if err := validateServer(&s); err != nil {
 			return err
+		}
+		if s.HealthRoute != "" && !strings.HasPrefix(s.HealthRoute, "/") {
+			c.Servers[i].HealthRoute = "/" + s.HealthRoute
 		}
 	}
 	return nil

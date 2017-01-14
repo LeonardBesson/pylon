@@ -17,6 +17,7 @@ func TestNewPylonCorrect(t *testing.T) {
 	in := &Server{
 		"server1",
 		7777,
+		"",
 		[]Service{{
 			"",
 			"/microservice/",
@@ -80,6 +81,7 @@ func TestNewPylonWrong(t *testing.T) {
 	wrong := &Server{
 		"server1",
 		7777,
+		"",
 		[]Service{{
 			"",
 			"",
@@ -147,6 +149,7 @@ func TestNextRoundRobinInstIdxNonWeighted(t *testing.T) {
 	in := &Server{
 		"server1",
 		7777,
+		"",
 		[]Service{{
 			"",
 			"/microservice/",
@@ -182,6 +185,7 @@ func TestNextRoundRobinInstIdxWeighted(t *testing.T) {
 	in := &Server{
 		"server1",
 		7777,
+		"",
 		[]Service{{
 			"",
 			"/microservice/",
@@ -219,6 +223,7 @@ func TestLeastConnected(t *testing.T) {
 	in := &Server{
 		"server1",
 		7777,
+		"",
 		[]Service{{
 			"",
 			"/microservice/",
