@@ -20,6 +20,7 @@ type Server struct {
 }
 
 type Service struct {
+	Name	    string	`json:"name"`
 	Pattern     string      `json:"route_pattern"`
 	Prefix      string      `json:"route_prefix"`
 	Instances   []Instance  `json:"instances"`

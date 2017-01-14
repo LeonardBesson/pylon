@@ -3,6 +3,7 @@ package pylon
 import (
 	"sync"
 	"log"
+	"fmt"
 )
 
 // Util types
@@ -54,6 +55,7 @@ func SetErrorLogger(logger Logger) {
 // Health Page
 const (
 	pylonTemplate = `{{range .}}
+			     Name:	  {{.Name}}
 			     Connections: {{.CurrConn}}
 			     Strategy:    {{.Strat}}
 			     {{range .Instances}}
@@ -74,6 +76,7 @@ type InstanceRender struct {
 }
 
 type ServiceRender struct {
+	Name 	  string
 	CurrConn  int
 	Strat     Strategy
 	Instances []InstanceRender
@@ -93,6 +96,7 @@ func getRenders(p *Pylon) []ServiceRender {
 		}
 
 		renders[idx] = ServiceRender{
+			Name: s.Name,
 			CurrConn: len(s.ReqCount),
 			Strat: s.Strategy,
 			Instances: insts,
@@ -129,7 +133,7 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return e.Message
+	return fmt.Sprintf("%s - [Error %d]", e.Message, e.Code)
 }
 
 func NewError(code int, message string) *Error {

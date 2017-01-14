@@ -87,6 +87,7 @@ type Route interface {
 }
 
 type MicroService struct {
+	Name	    string
 	Route       Route
 	Instances   []*Instance
 	Strategy    Strategy
@@ -222,6 +223,7 @@ func NewMicroService(s *Service) (*MicroService, error) {
 		}
 		m.Instances = append(m.Instances, newInst)
 	}
+	m.Name = s.Name
 	m.Strategy = s.Strategy
 	m.Mutex = &sync.RWMutex{}
 	m.BlackList = make(map[int]bool, len(s.Instances))
