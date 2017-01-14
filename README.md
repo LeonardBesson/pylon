@@ -9,6 +9,7 @@ You just need a config, for example:
     {
       "name": "server1",
       "port": 7777,
+      "monitoring_route": "/health",
       "services": [
         {
           "route_prefix": "/microservice/",

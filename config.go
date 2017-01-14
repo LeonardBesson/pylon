@@ -15,7 +15,7 @@ type Config struct {
 type Server struct {
 	Name        string    `json:"name"`
 	Port        int       `json:"port"`
-	HealthRoute string    `json:"health_route"`
+	HealthRoute string    `json:"monitoring_route"`
 	Services    []Service `json:"services"`
 }
 
