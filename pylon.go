@@ -273,7 +273,6 @@ func startPeriodicHealthCheck(m *MicroService, interval time.Duration) {
 
 func handleHealthCheck(m *MicroService) bool {
 	change := false
-	//var weightSum float32 = 0.0
 	for i, inst := range m.Instances {
 		_, err := dialer.Dial("tcp", inst.Host)
 		if err != nil {
@@ -286,12 +285,8 @@ func handleHealthCheck(m *MicroService) bool {
 				m.blackList(i, false)
 				change = true
 			}
-			//weightSum += inst.Weight
 		}
 	}
-	//m.Mutex.Lock()
-	//m.WeightSum = weightSum
-	//m.Mutex.Unlock()
 	return change
 }
 
@@ -523,4 +518,17 @@ func (m *MicroService) isBlacklisted(idx int) bool {
 	m.Mutex.RUnlock()
 
 	return blackListed
+}
+
+func (i *Instance) isRoundRobinPicked() bool {
+	i.RRPos.Lock()
+	defer i.RRPos.Unlock()
+
+	i.RRPos.value++
+	if i.RRPos.value > int(i.Weight) {
+		i.RRPos.value = 0
+		return false
+	}
+
+	return true
 }

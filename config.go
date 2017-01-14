@@ -40,16 +40,3 @@ type Instance struct {
 	ReqCount chan int
 	RRPos    SharedInt
 }
-
-func (i *Instance) isRoundRobinPicked() bool {
-	i.RRPos.Lock()
-	defer i.RRPos.Unlock()
-
-	i.RRPos.value++
-	if i.RRPos.value > int(i.Weight) {
-		i.RRPos.value = 0
-		return false
-	}
-
-	return true
-}
