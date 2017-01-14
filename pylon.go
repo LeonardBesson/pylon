@@ -215,13 +215,12 @@ func NewMicroService(s *Service) (*MicroService, error) {
 		}
 		weightSum += weight
 
-		newInst := &Instance{
+		m.Instances = append(m.Instances, &Instance{
 			inst.Host,
 			weight,
 			make(chan int, maxCon),
 			NewSharedInt(0),
-		}
-		m.Instances = append(m.Instances, newInst)
+		})
 	}
 	m.Name = s.Name
 	m.Strategy = s.Strategy

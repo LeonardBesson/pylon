@@ -20,6 +20,7 @@ func TestNewPylonCorrect(t *testing.T) {
 		"",
 		[]Service{{
 			"",
+			"",
 			"/microservice/",
 			[]Instance{
 				{"127.0.0.1:1111", 3, nil, NewSharedInt(0)},
@@ -34,6 +35,7 @@ func TestNewPylonCorrect(t *testing.T) {
 
 	expected := &Pylon{
 		[]*MicroService{{
+			"",
 			PrefixRoute{
 				"/microservice/",
 			},
@@ -83,6 +85,7 @@ func TestNewPylonWrong(t *testing.T) {
 		7777,
 		"",
 		[]Service{{
+			"",
 			"",
 			"",
 			[]Instance{
@@ -152,6 +155,7 @@ func TestNextRoundRobinInstIdxNonWeighted(t *testing.T) {
 		"",
 		[]Service{{
 			"",
+			"",
 			"/microservice/",
 			[]Instance{
 				{"127.0.0.1:1111", 0, nil, NewSharedInt(0)},
@@ -187,6 +191,7 @@ func TestNextRoundRobinInstIdxWeighted(t *testing.T) {
 		7777,
 		"",
 		[]Service{{
+			"",
 			"",
 			"/microservice/",
 			[]Instance{
@@ -225,6 +230,7 @@ func TestLeastConnected(t *testing.T) {
 		7777,
 		"",
 		[]Service{{
+			"",
 			"",
 			"/microservice/",
 			[]Instance{

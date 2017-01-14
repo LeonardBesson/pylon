@@ -15,6 +15,7 @@ func TestJSONConfigParser_Parse(t *testing.T) {
 			      "port": 7777,
 			      "services": [
 				{
+				  "name": "Micro Service 1",
 				  "route_prefix": "/microservice/",
 				  "instances": [
 				    {
@@ -42,6 +43,7 @@ func TestJSONConfigParser_Parse(t *testing.T) {
 			7777,
 			"",
 			[]Service{{
+				"Micro Service 1",
 				"",
 				"/microservice/",
 				[]Instance{
@@ -76,6 +78,7 @@ func TestValidateConfig(t *testing.T) {
 			"",
 			[]Service{{
 				"",
+				"",
 				"/microservice/",
 				[]Instance{
 					{"127.0.0.1:1111", 3, nil, NewSharedInt(0)},
@@ -95,6 +98,7 @@ func TestValidateConfig(t *testing.T) {
 			7777,
 			"",
 			[]Service{{
+				"",
 				"**/regex_route",
 				"",
 				[]Instance{
@@ -127,6 +131,7 @@ func TestValidateServer(t *testing.T) {
 		"",
 		[]Service{{
 			"",
+			"",
 			"/microservice/",
 			[]Instance{
 				{"127.0.0.1:1111", 3, nil, NewSharedInt(0)},
@@ -144,6 +149,7 @@ func TestValidateServer(t *testing.T) {
 		-1,
 		"",
 		[]Service{{
+			"",
 			"**/regex_route",
 			"",
 			[]Instance{
