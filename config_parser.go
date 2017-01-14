@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"regexp"
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -70,15 +69,15 @@ func validateServer(s *Server) (error) {
 
 func validateService(s *Service) (error) {
 	if _, err := regexp.Compile(s.Pattern); err != nil {
-		return errors.New("Route: " + s.Pattern + " is not a correct regular expression")
+		return NewError(ErrInvalidRouteRegexCode, "Route: " + s.Pattern + " is not a correct regular expression")
 	}
 
 	if len(s.Instances) <= 0 {
-		return errors.New("Service has no instance")
+		return ErrServiceNoInstance
 	}
 
 	if !isStrategyValid(s.Strategy) {
-		return errors.New("Strategy: " + string(s.Strategy) + " is not valid")
+		return NewError(ErrInvalidStrategyCode, "Strategy: " + string(s.Strategy) + " is not valid")
 	}
 
 	for _, inst := range s.Instances {
@@ -91,7 +90,7 @@ func validateService(s *Service) (error) {
 
 func validateInstance(inst *Instance) (error) {
 	if !hostRegexp.MatchString(inst.Host) /*&& !hostNameRegexp.MatchString(inst.IP)*/ {
-		return errors.New("Host: " + inst.Host + " is not correct")
+		return NewError(ErrInvalidHostCode, "Host: " + inst.Host + " is not correct")
 	}
 	return nil
 }

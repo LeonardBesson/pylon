@@ -45,7 +45,6 @@ package pylon
 import (
 	"net/http"
 	"regexp"
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -58,7 +57,6 @@ import (
 
 var (
 	dialer = &net.Dialer{Timeout: dialerTimeout}
-	NoService error = errors.New("Service has no route")
 	proxyPool *ProxyPool
 )
 
@@ -200,7 +198,7 @@ func NewMicroService(s *Service) (*MicroService, error) {
 			Prefix: s.Prefix,
 		}
 	} else {
-		return nil, NoService
+		return nil, ErrServiceNoRoute
 	}
 
 	maxCon := defaultMaxCon
@@ -355,12 +353,12 @@ func getRoute(path string, p *Pylon) (string, error) {
 			if strings.HasPrefix(path, pref) {
 				return pref, nil
 			}
-		default: return "", errors.New("Route has no correct type")
+		default: return "", ErrInvalidRouteType
 
 		}
 	}
 
-	return "no_route", errors.New("No route available for path " + path)
+	return "", NewError(ErrRouteNoRouteCode, "No route available for path " + path)
 }
 
 func (p *Pylon) microFromRoute(route string) *MicroService {
@@ -385,11 +383,11 @@ func (p *Pylon) microFromRoute(route string) *MicroService {
 func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	instCount := len(m.Instances)
 	if instCount == 0 {
-		return nil, -1, errors.New("Microservice has no instances")
+		return nil, -1, ErrServiceNoInstance
 	}
 
 	if len(m.BlackList) == instCount {
-		return nil, -1, errors.New("All instances are dead")
+		return nil, -1, ErrAllInstancesDown
 	}
 
 	instances := make([]*Instance, instCount)
@@ -406,7 +404,7 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 		case Random:
 			idx = getRandomInstIdx(instances)
 		default:
-			return nil, -1, errors.New("Unexpected strategy " + string(m.Strategy))
+			return nil, -1, NewError(ErrInvalidStrategyCode, "Unexpected strategy " + string(m.Strategy))
 		}
 
 		if err != nil {
@@ -440,7 +438,7 @@ func nextRoundRobinInstIdx(instances []*Instance, idx int) (int, error) {
 			if lastNonNil != -1 {
 				return lastNonNil, nil
 			}
-			return -1, errors.New("No instance can be round robin picked")
+			return -1, ErrFailedRoundRobin
 		}
 		if idx >= instCount {
 			idx = 0

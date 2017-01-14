@@ -5,11 +5,7 @@ import (
 	"log"
 )
 
-var (
-	debugLogger Logger = log.Println
-	errorLogger Logger = log.Println
-)
-
+// Util types
 type SharedInt struct {
 	*sync.RWMutex
 	value int
@@ -38,6 +34,12 @@ func (c *SharedInt) Set(v int) int {
 
 	return prev
 }
+
+// Logging
+var (
+	debugLogger Logger = log.Println
+	errorLogger Logger = log.Println
+)
 
 type Logger func(...interface{})
 
@@ -77,7 +79,7 @@ type ServiceRender struct {
 	Instances []InstanceRender
 }
 
-func getRenders(p *Pylon) []ServiceRender{
+func getRenders(p *Pylon) []ServiceRender {
 	renders := make([]ServiceRender, len(p.Services))
 	for idx, s := range p.Services {
 		insts := make([]InstanceRender, len(s.Instances))
@@ -98,4 +100,41 @@ func getRenders(p *Pylon) []ServiceRender{
 	}
 
 	return renders
+}
+
+// Errors
+const (
+	ErrServiceNoRouteCode = iota + 30
+	ErrInvalidRouteTypeCode
+	ErrRouteNoRouteCode
+	ErrServiceNoInstanceCode
+	ErrAllInstancesDownCode
+	ErrInvalidStrategyCode
+	ErrFailedRoundRobinCode
+	ErrInvalidRouteRegexCode
+	ErrInvalidHostCode
+)
+
+var (
+	ErrServiceNoRoute    = NewError(ErrServiceNoRouteCode,    "Service has no route")
+	ErrInvalidRouteType  = NewError(ErrInvalidRouteTypeCode,  "Route has no correct type")
+	ErrServiceNoInstance = NewError(ErrServiceNoInstanceCode, "Service has no instances")
+	ErrAllInstancesDown  = NewError(ErrAllInstancesDownCode,  "All instances are dead")
+	ErrFailedRoundRobin  = NewError(ErrFailedRoundRobinCode,  "No instance can be round robin picked")
+)
+
+type Error struct {
+	Code    int
+	Message string
+}
+
+func (e *Error) Error() string {
+	return e.Message
+}
+
+func NewError(code int, message string) *Error {
+	return &Error{
+		code,
+		message,
+	}
 }
