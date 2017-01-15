@@ -45,7 +45,6 @@ package pylon
 import (
 	"net/http"
 	"regexp"
-	"fmt"
 	"strconv"
 	"sync"
 	"math/rand"
@@ -149,7 +148,7 @@ func ListenAndServeConfig(c *Config) error {
 			}
 		}
 	}
-	fmt.Println("Pool size is", poolSize)
+	logDebug("Pool size is", poolSize)
 	proxyPool = NewProxyPool(poolSize)
 
 	wg.Add(len(c.Servers))
@@ -241,7 +240,6 @@ func serve(p *Pylon, port int, healthRoute string) {
 	mux := http.NewServeMux()
 	mux.Handle("/", NewPylonHandler(p))
 	mux.Handle(healthRoute, NewPylonHealthHandler(p))
-	fmt.Println("Serving on " + strconv.Itoa(port))
 	server := &http.Server{
 		Addr:           ":" + strconv.Itoa(port),
 		Handler:        mux,
@@ -251,14 +249,17 @@ func serve(p *Pylon, port int, healthRoute string) {
 	}
 
 	for _, s := range p.Services {
+		logDebug("Starting initial health check of service: " + s.Name)
 		// Do an initial health check
 		go handleHealthCheck(s)
 
 		if s.HealthCheck.Enabled {
 			go startPeriodicHealthCheck(s, time.Second * time.Duration(s.HealthCheck.Interval))
+			logDebug("Periodic Health checks started for service: " + s.Name)
 		}
 	}
 
+	logInfo("Serving on " + strconv.Itoa(port))
 	server.ListenAndServe()
 }
 
@@ -266,7 +267,7 @@ func startPeriodicHealthCheck(m *MicroService, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for t := range ticker.C {
-		fmt.Println("Checking health of Service:", m.Route, " ---tick:", t)
+		logVerbose("Checking health of Service:", m.Route, " ---tick:", t)
 		handleHealthCheck(m)
 	}
 }
@@ -278,11 +279,13 @@ func handleHealthCheck(m *MicroService) bool {
 		if err != nil {
 			if !m.isBlacklisted(i) {
 				m.blackList(i, true)
+				logInfo("Instance: " + inst.Host + " is now marked as DOWN")
 				change = true
 			}
 		} else {
 			if m.isBlacklisted(i) {
 				m.blackList(i, false)
+				logInfo("Instance: " + inst.Host + " is now marked as UP")
 				change = true
 			}
 		}
@@ -292,8 +295,9 @@ func handleHealthCheck(m *MicroService) bool {
 
 func NewPylonHandler(p *Pylon) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		route, err := getRoute(r.URL.Path, p)
+		route, err := p.getRoute(r.URL.Path)
 		if err != nil {
+			logError(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -307,12 +311,12 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Println("Instance is " + inst.Host)
 
 		m.ReqCount <- 1
 		inst.ReqCount <- 1
 
-		fmt.Println("Serving new request, count: " + strconv.Itoa(len(m.ReqCount)))
+		logVerbose("Serving " + r.URL.Path + r.URL.RawQuery + ", current request count: " + strconv.Itoa(len(m.ReqCount)))
+		logVerbose("Instance is " + inst.Host)
 		proxy := proxyPool.Get()
 		SetUpProxy(proxy, m, inst.Host)
 		proxy.ServeHTTP(w, r)
@@ -320,7 +324,7 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 
 		<-inst.ReqCount
 		<-m.ReqCount
-		fmt.Println("Request served, count: " + strconv.Itoa(len(m.ReqCount)))
+		logVerbose("Request served, count: " + strconv.Itoa(len(m.ReqCount)))
 	}
 }
 
@@ -328,15 +332,16 @@ func NewPylonHealthHandler(p *Pylon) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		t, err := template.New("PylonHealthTemplate").Parse(pylonTemplate)
 		if err != nil {
-			errorLogger(err.Error())
+			logError(err.Error())
 		}
 		if err := t.Execute(w, getRenders(p)); err != nil {
-			errorLogger("Could not render the HTML template")
+			logError("Could not render the HTML template")
 		}
+		logDebug("Served heath page HTML")
 	}
 }
 
-func getRoute(path string, p *Pylon) (string, error) {
+func (p *Pylon) getRoute(path string) (string, error) {
 	for _, ser := range p.Services {
 		switch ser.Route.Type() {
 		case Regex:
@@ -349,8 +354,8 @@ func getRoute(path string, p *Pylon) (string, error) {
 			if strings.HasPrefix(path, pref) {
 				return pref, nil
 			}
-		default: return "", ErrInvalidRouteType
-
+		default:
+			return "", ErrInvalidRouteType
 		}
 	}
 
@@ -483,14 +488,6 @@ func getRandomInstIdx(instances []*Instance) int {
 	}
 
 	return 0
-}
-
-func (m *MicroService) notifyReq(in bool) {
-	if in {
-		m.ReqCount <- 1
-	} else {
-		<-m.ReqCount
-	}
 }
 
 func (m *MicroService) blackList(idx int, blacklist bool) {

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"log"
 	"fmt"
+	"io"
 )
 
 // Util types
@@ -37,19 +38,88 @@ func (c *SharedInt) Set(v int) int {
 }
 
 // Logging
+const (
+	LOG_DEBUG 	   int8 = 1 << 0
+	LOG_ERROR 	   int8 = 1 << 1
+	LOG_INFO 	   int8 = 1 << 2
+	LOG_VERBOSE 	   int8 = 1 << 3
+	LOG_NONE 	   int8 = 0
+	LOG_EXCEPT_VERBOSE int8 = LOG_DEBUG | LOG_ERROR | LOG_INFO
+	LOG_ALL 	   int8 = LOG_DEBUG | LOG_ERROR | LOG_INFO | LOG_VERBOSE
+)
+
 var (
-	debugLogger Logger = log.Println
-	errorLogger Logger = log.Println
+	debugLogger   Logger = debugFunc
+	errorLogger   Logger = errorFunc
+	infoLogger    Logger = infoFunc
+	verboseLogger Logger = verboseFunc
+	logMask       int8 = LOG_EXCEPT_VERBOSE
 )
 
 type Logger func(...interface{})
 
-func SetDebugLogger(logger Logger) {
-	debugLogger = logger
+func SetDebugLogger(l Logger) {
+	debugLogger = l
 }
 
-func SetErrorLogger(logger Logger) {
-	errorLogger = logger
+func SetErrorLogger(l Logger) {
+	errorLogger = l
+}
+
+func SetInfoLogger(l Logger) {
+	infoLogger = l
+}
+
+func SetVerboseLogger(l Logger) {
+	verboseLogger = l
+}
+
+func SetLogWriter(w io.Writer) {
+	log.SetOutput(w)
+}
+
+func SetLogLevels(mask int8) {
+	logMask = mask
+}
+
+func logDebug(a ...interface{}) {
+	if logMask & LOG_DEBUG != 0 {
+		debugLogger(a)
+	}
+}
+
+func logError(a ...interface{}) {
+	if logMask & LOG_ERROR != 0 {
+		errorLogger(a)
+	}
+}
+
+func logInfo(a ...interface{}) {
+	if logMask & LOG_INFO != 0 {
+		infoLogger(a)
+	}
+}
+
+func logVerbose(a ...interface{}) {
+	if logMask & LOG_VERBOSE != 0 {
+		verboseLogger(a)
+	}
+}
+
+func debugFunc(a ...interface{}) {
+	log.Println("- DEBUG -", a)
+}
+
+func infoFunc(a ...interface{}) {
+	log.Println("- INFO  -", a)
+}
+
+func errorFunc(a ...interface{}) {
+	log.Println("- ERROR -", a)
+}
+
+func verboseFunc(a ...interface{}) {
+	log.Println("- VERBO -", a)
 }
 
 // Health Page
@@ -76,7 +146,7 @@ type InstanceRender struct {
 }
 
 type ServiceRender struct {
-	Name 	  string
+	Name      string
 	CurrConn  int
 	Strat     Strategy
 	Instances []InstanceRender
@@ -120,11 +190,11 @@ const (
 )
 
 var (
-	ErrServiceNoRoute    = NewError(ErrServiceNoRouteCode,    "Service has no route")
-	ErrInvalidRouteType  = NewError(ErrInvalidRouteTypeCode,  "Route has no correct type")
+	ErrServiceNoRoute = NewError(ErrServiceNoRouteCode, "Service has no route")
+	ErrInvalidRouteType = NewError(ErrInvalidRouteTypeCode, "Route has invalid type")
 	ErrServiceNoInstance = NewError(ErrServiceNoInstanceCode, "Service has no instances")
-	ErrAllInstancesDown  = NewError(ErrAllInstancesDownCode,  "All instances are dead")
-	ErrFailedRoundRobin  = NewError(ErrFailedRoundRobinCode,  "No instance can be round robin picked")
+	ErrAllInstancesDown = NewError(ErrAllInstancesDownCode, "All instances are dead")
+	ErrFailedRoundRobin = NewError(ErrFailedRoundRobinCode, "No instance can be round robin picked")
 )
 
 type Error struct {

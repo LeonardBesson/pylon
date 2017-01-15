@@ -2,7 +2,6 @@ package pylon
 
 import (
 	"net/http"
-	"fmt"
 )
 
 type PylonTransport struct {
@@ -22,14 +21,14 @@ func NewPylonTransport() *PylonTransport {
 func (pt *PylonTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	res, err := pt.transport.RoundTrip(req)
 	if err != nil {
-		fmt.Println(req.URL.Host + " is down")
+		logError(req.URL.Host + " is down")
 		pt.microservice.blackListHost(req.URL.Host, true)
 		inst, _, err := pt.microservice.getLoadBalancedInstance()
 		if err != nil {
 			return nil, err
 		}
 		req.URL.Host = inst.Host
-		fmt.Println("Trying with new Instance:", inst.Host)
+		logError("Trying with new Instance:", inst.Host)
 		return pt.RoundTrip(req)
 	}
 
