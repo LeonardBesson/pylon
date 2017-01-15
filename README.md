@@ -51,13 +51,13 @@ import (
 )
 
 func main() {
-       f, err := os.OpenFile("pylon.log", os.O_RDWR | os.O_CREATE | os.O_TRUNC, 0666)
+    f, err := os.OpenFile("pylon.log", os.O_RDWR | os.O_CREATE | os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	defer f.Close()
 	
-       // Redirect the logging to a file
+    // Redirect the logging to a file
 	pylon.SetLogWriter(f)
 	// Set the logging levels
 	pylon.SetLogLevels(pylon.LOG_ERROR | pylon.LOG_INFO)
