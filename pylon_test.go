@@ -29,7 +29,7 @@ func TestNewPylonCorrect(t *testing.T) {
 			},
 			RoundRobin,
 			300,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 
@@ -50,7 +50,7 @@ func TestNewPylonCorrect(t *testing.T) {
 			make(chan int, 300),
 			0.0,
 			&sync.RWMutex{},
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 
@@ -95,7 +95,7 @@ func TestNewPylonWrong(t *testing.T) {
 			},
 			RoundRobin,
 			300,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 
@@ -164,7 +164,7 @@ func TestNextRoundRobinInstIdxNonWeighted(t *testing.T) {
 			},
 			RoundRobin,
 			300,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 
@@ -202,7 +202,7 @@ func TestNextRoundRobinInstIdxWeighted(t *testing.T) {
 			},
 			RoundRobin,
 			300,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 
@@ -241,7 +241,7 @@ func TestLeastConnected(t *testing.T) {
 			},
 			LeastConnected,
 			300,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 

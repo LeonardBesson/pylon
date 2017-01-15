@@ -12,6 +12,7 @@ You just need a config, for example:
       "monitoring_route": "/health",
       "services": [
         {
+          "name": "Billing Service",
           "route_prefix": "/microservice/",
           "instances": [
             {
@@ -29,7 +30,8 @@ You just need a config, for example:
           "max_connections": 300,
           "health_check": {
             "enabled": true,
-            "interval": 30
+            "interval": 30,
+            "dial_timeout": 2
           }
         }
       ]

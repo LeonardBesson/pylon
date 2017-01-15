@@ -53,7 +53,7 @@ func TestJSONConfigParser_Parse(t *testing.T) {
 				},
 				RoundRobin,
 				300,
-				HealthCheck{false, 0},
+				HealthCheck{false, 0, 0},
 			}},
 		}},
 	}
@@ -87,7 +87,7 @@ func TestValidateConfig(t *testing.T) {
 				},
 				RoundRobin,
 				300,
-				HealthCheck{false, 0},
+				HealthCheck{false, 0, 0},
 			}},
 		}},
 	}
@@ -108,7 +108,7 @@ func TestValidateConfig(t *testing.T) {
 				},
 				"wrong_strategy",
 				0,
-				HealthCheck{false, 0},
+				HealthCheck{false, 0, 0},
 			}},
 		}},
 	}
@@ -140,7 +140,7 @@ func TestValidateServer(t *testing.T) {
 			},
 			RoundRobin,
 			300,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 
@@ -159,7 +159,7 @@ func TestValidateServer(t *testing.T) {
 			},
 			"wrong_strategy",
 			0,
-			HealthCheck{false, 0},
+			HealthCheck{false, 0, 0},
 		}},
 	}
 

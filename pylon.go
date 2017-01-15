@@ -55,7 +55,6 @@ import (
 )
 
 var (
-	dialer = &net.Dialer{Timeout: dialerTimeout}
 	proxyPool *ProxyPool
 )
 
@@ -73,7 +72,7 @@ const (
 	defaultProxyPoolCapacity = defaultMaxCon
 
 	flushInterval = time.Second * 1
-	dialerTimeout = time.Second * 3
+	defaultDialerTimeout = time.Second * 3
 )
 
 type Pylon struct {
@@ -250,11 +249,17 @@ func serve(p *Pylon, port int, healthRoute string) {
 
 	for _, s := range p.Services {
 		logDebug("Starting initial health check of service: " + s.Name)
+		d := &net.Dialer{
+			Timeout: defaultDialerTimeout,
+		}
+		if s.HealthCheck.DialTO != 0 {
+			d.Timeout = time.Second * time.Duration(s.HealthCheck.DialTO)
+		}
 		// Do an initial health check
-		go handleHealthCheck(s)
+		go handleHealthCheck(s, d)
 
 		if s.HealthCheck.Enabled {
-			go startPeriodicHealthCheck(s, time.Second * time.Duration(s.HealthCheck.Interval))
+			go startPeriodicHealthCheck(s, time.Second * time.Duration(s.HealthCheck.Interval), d)
 			logDebug("Periodic Health checks started for service: " + s.Name)
 		}
 	}
@@ -263,19 +268,19 @@ func serve(p *Pylon, port int, healthRoute string) {
 	server.ListenAndServe()
 }
 
-func startPeriodicHealthCheck(m *MicroService, interval time.Duration) {
+func startPeriodicHealthCheck(m *MicroService, interval time.Duration, d *net.Dialer) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for t := range ticker.C {
 		logVerbose("Checking health of Service:", m.Route, " ---tick:", t)
-		handleHealthCheck(m)
+		handleHealthCheck(m, d)
 	}
 }
 
-func handleHealthCheck(m *MicroService) bool {
+func handleHealthCheck(m *MicroService, d *net.Dialer) bool {
 	change := false
 	for i, inst := range m.Instances {
-		_, err := dialer.Dial("tcp", inst.Host)
+		_, err := d.Dial("tcp", inst.Host)
 		if err != nil {
 			if !m.isBlacklisted(i) {
 				m.blackList(i, true)

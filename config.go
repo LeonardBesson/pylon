@@ -32,6 +32,7 @@ type Service struct {
 type HealthCheck struct {
 	Enabled  bool `json:"enabled"`
 	Interval int  `json:"interval"`
+	DialTO   int  `json:"dial_timeout"`
 }
 
 type Instance struct {
