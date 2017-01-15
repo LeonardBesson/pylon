@@ -39,7 +39,7 @@ func NewProxy() *httputil.ReverseProxy {
 	}
 }
 
-func SetUpProxy(proxy *httputil.ReverseProxy, m *MicroService, host string) {
+func setUpProxy(proxy *httputil.ReverseProxy, m *MicroService, host string) {
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = "http"
 		req.URL.Host = host

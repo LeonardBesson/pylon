@@ -47,9 +47,31 @@ package main
 import (
 	"github.com/leonardbesson/pylon"
 	"log"
+	"os"
 )
 
 func main() {
+       f, err := os.OpenFile("pylon.log", os.O_RDWR | os.O_CREATE | os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+	
+       // Redirect the logging to a file
+	pylon.SetLogWriter(f)
+	// Set the logging levels
+	pylon.SetLogLevels(pylon.LOG_ERROR | pylon.LOG_INFO)
+	// Specify a custom logging function (log.Println is already the default)
+	pylon.SetInfoLogger(log.Println)
+	pylon.SetErrorLogger(log.Println)
+	
 	log.Fatal(pylon.ListenAndServe("./config.json"))
 }
+```
+## Executables
+If you don't want to use Pylon in your own library or main, I have put pre-compiled executables (Win x64 and Linux x64) running a simple main in the "Release" section.
+
+Launch it with the config file named "config.json" in the same directory and it will create a log file named "pylon.log". You can also specify the config and log files, for example:
+```
+ ./pylon_linux_x64 -c /path/to/config.json -log /your/log/file
 ```

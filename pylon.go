@@ -323,7 +323,7 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 		logVerbose("Serving " + r.URL.Path + r.URL.RawQuery + ", current request count: " + strconv.Itoa(len(m.ReqCount)))
 		logVerbose("Instance is " + inst.Host)
 		proxy := proxyPool.Get()
-		SetUpProxy(proxy, m, inst.Host)
+		setUpProxy(proxy, m, inst.Host)
 		proxy.ServeHTTP(w, r)
 		proxyPool.Put(proxy)
 
