@@ -7,7 +7,6 @@ import (
 	"io"
 )
 
-// Util types
 type SharedInt struct {
 	*sync.RWMutex
 	value int
@@ -37,7 +36,6 @@ func (c *SharedInt) Set(v int) int {
 	return prev
 }
 
-// Logging
 const (
 	LOG_DEBUG 	   int8 = 1 << 0
 	LOG_ERROR 	   int8 = 1 << 1
@@ -53,7 +51,7 @@ var (
 	errorLogger   Logger = errorFunc
 	infoLogger    Logger = infoFunc
 	verboseLogger Logger = verboseFunc
-	logMask       int8 = LOG_EXCEPT_VERBOSE
+	logMask       int8   = LOG_EXCEPT_VERBOSE
 )
 
 type Logger func(...interface{})
@@ -122,7 +120,6 @@ func verboseFunc(a ...interface{}) {
 	log.Println("- VERBO -", a)
 }
 
-// Health Page
 const (
 	pylonTemplate = `{{range .}}
 			     Name:	  {{.Name}}
@@ -176,7 +173,6 @@ func getRenders(p *Pylon) []ServiceRender {
 	return renders
 }
 
-// Errors
 const (
 	ErrServiceNoRouteCode = iota + 30
 	ErrInvalidRouteTypeCode

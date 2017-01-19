@@ -13,7 +13,7 @@ You just need a config, for example:
       "services": [
         {
           "name": "Billing Service",
-          "route_prefix": "/microservice/",
+          "route_prefix": "/microservice/", // Supports regular expressions with: "route_pattern": "/microservice/*"
           "instances": [
             {
               "host": "127.0.0.1:1111",
@@ -26,11 +26,11 @@ You just need a config, for example:
               "host": "127.0.0.1:3333"
             }
           ],
-          "balancing_strategy": "round_robin",
-          "max_connections": 300,
+          "balancing_strategy": "round_robin", // "least_connected" or "random" for the other strategies
+          "max_connections": 300, // 0 defaults to 100000
           "health_check": {
             "enabled": true,
-            "interval": 30,
+            "interval": 30, // Durations are in seconds
             "dial_timeout": 2
           }
         }

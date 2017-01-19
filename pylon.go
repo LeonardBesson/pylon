@@ -122,6 +122,7 @@ func (p PrefixRoute) Data() interface{} {
 	return p.Prefix
 }
 
+// ListenAndServe tries to parse the config at the given path and serve it
 func ListenAndServe(p string) error {
 	jsonParser := JSONConfigParser{}
 	c, err := jsonParser.ParseFromPath(p)
@@ -132,6 +133,8 @@ func ListenAndServe(p string) error {
 	return ListenAndServeConfig(c)
 }
 
+// ListenAndServeConfig converts a given config to an exploitable
+// structure (MicroService) and serves them
 func ListenAndServeConfig(c *Config) error {
 	wg := sync.WaitGroup{}
 
@@ -169,6 +172,7 @@ func ListenAndServeConfig(c *Config) error {
 	return nil
 }
 
+// NewPylon returns a new Pylon object given a Server
 func NewPylon(s *Server) (*Pylon, error) {
 	p := &Pylon{}
 	for _, ser := range s.Services {
@@ -182,6 +186,7 @@ func NewPylon(s *Server) (*Pylon, error) {
 	return p, nil
 }
 
+// NewMicroService returns a new MicroService object given a Service
 func NewMicroService(s *Service) (*MicroService, error) {
 	m := &MicroService{}
 	if s.Pattern != "" {
@@ -235,6 +240,9 @@ func NewMicroService(s *Service) (*MicroService, error) {
 	return m, nil
 }
 
+// serve serves a Pylon with all of its MicroServices given
+// a port to listen to and a route that will be used to access
+// some stats about this very Pylon
 func serve(p *Pylon, port int, healthRoute string) {
 	mux := http.NewServeMux()
 	mux.Handle("/", NewPylonHandler(p))
@@ -268,6 +276,9 @@ func serve(p *Pylon, port int, healthRoute string) {
 	server.ListenAndServe()
 }
 
+// startPeriodicHealthCheck starts a timer that will check
+// the health of the given MicroService given an interval and
+// a dialer which is used to ping the instances/endpoints
 func startPeriodicHealthCheck(m *MicroService, interval time.Duration, d *net.Dialer) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -277,6 +288,8 @@ func startPeriodicHealthCheck(m *MicroService, interval time.Duration, d *net.Di
 	}
 }
 
+// handleHealthCheck checks whether every instance of the given
+// MicroService is UP or DOWN. Performed by the given Dialer
 func handleHealthCheck(m *MicroService, d *net.Dialer) bool {
 	change := false
 	for i, inst := range m.Instances {
@@ -298,16 +311,18 @@ func handleHealthCheck(m *MicroService, d *net.Dialer) bool {
 	return change
 }
 
+// NewPylonHandler returns a func(w http.ResponseWriter, r *http.Request)
+// that will handle incoming requests to the given Pylon
 func NewPylonHandler(p *Pylon) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		route, err := p.getRoute(r.URL.Path)
-		if err != nil {
-			logError(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		m := p.microFromRoute(route)
-		if m == nil {
+		//route, err := p.getRoute(r.URL.Path)
+		//if err != nil {
+		//	logError(err)
+		//	http.Error(w, err.Error(), http.StatusInternalServerError)
+		//	return
+		//}
+		m, err := p.getMicroServiceFromRoute(r.URL.Path)
+		if err != nil || m == nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -333,6 +348,10 @@ func NewPylonHandler(p *Pylon) http.HandlerFunc {
 	}
 }
 
+// NewPylonHealthHandler returns a func(w http.ResponseWriter, r *http.Request)
+// that will collect and render some stats about the given Pylon:
+// (Name / Strategy / Current request count)
+// For every instance: (UP or DOWN / Host / Weight / Current request count)
 func NewPylonHealthHandler(p *Pylon) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		t, err := template.New("PylonHealthTemplate").Parse(pylonTemplate)
@@ -346,46 +365,32 @@ func NewPylonHealthHandler(p *Pylon) http.HandlerFunc {
 	}
 }
 
-func (p *Pylon) getRoute(path string) (string, error) {
+// getMicroServiceFromRoute returns the first MicroService
+// that matches the given route (nil and an error if no
+// MicroService could match that route)
+func (p *Pylon) getMicroServiceFromRoute(path string) (*MicroService, error) {
 	for _, ser := range p.Services {
 		switch ser.Route.Type() {
 		case Regex:
 			reg := ser.Route.Data().(*regexp.Regexp)
 			if reg.Match([]byte(path)) {
-				return reg.String(), nil
+				return ser, nil
 			}
 		case Prefix:
 			pref := ser.Route.Data().(string)
 			if strings.HasPrefix(path, pref) {
-				return pref, nil
+				return ser, nil
 			}
 		default:
-			return "", ErrInvalidRouteType
+			return nil, ErrInvalidRouteType
 		}
 	}
 
-	return "", NewError(ErrRouteNoRouteCode, "No route available for path " + path)
+	return nil, NewError(ErrRouteNoRouteCode, "No route available for path " + path)
 }
 
-func (p *Pylon) microFromRoute(route string) *MicroService {
-	for _, ser := range p.Services {
-		switch ser.Route.Type() {
-		case Regex:
-			if ser.Route.Data().(*regexp.Regexp).String() == route {
-				return ser
-			}
-		case Prefix:
-			if ser.Route.Data().(string) == route {
-				return ser
-			}
-		default:
-			return nil
-		}
-	}
-
-	return nil
-}
-
+// getLoadBalancedInstance will return a load balanced Instance
+// according to the MicroService strategy and current state
 func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	instCount := len(m.Instances)
 	if instCount == 0 {
@@ -404,7 +409,7 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	for {
 		switch m.Strategy {
 		case RoundRobin:
-			idx, err = nextRoundRobinInstIdx(instances, m.LastUsedIdx.Get())
+			idx, err = getRoundRobinInstIdx(instances, m.LastUsedIdx.Get())
 		case LeastConnected:
 			idx = getLeastConInstIdx(instances)
 		case Random:
@@ -426,7 +431,9 @@ func (m *MicroService) getLoadBalancedInstance() (*Instance, int, error) {
 	}
 }
 
-func nextRoundRobinInstIdx(instances []*Instance, idx int) (int, error) {
+// getRoundRobinInstIdx returns the index of the Instance that should be
+// picked according to round robin rules and a given slice of Instance
+func getRoundRobinInstIdx(instances []*Instance, idx int) (int, error) {
 	tryCount := 1
 	instCount := len(instances)
 	lastNonNil := -1
@@ -453,6 +460,10 @@ func nextRoundRobinInstIdx(instances []*Instance, idx int) (int, error) {
 	return idx, nil
 }
 
+// getLeastConInstIdx returns the index of the Instance that should be
+// picked according to the least connected rules and a given slice of Instance
+// Least Connected returns the least loaded instance, which is
+// computed by the current request count divided by the weight of the instance
 func getLeastConInstIdx(instances []*Instance) int {
 	minLoad := maxFloat32
 	idx := 0
@@ -471,6 +482,9 @@ func getLeastConInstIdx(instances []*Instance) int {
 	return idx
 }
 
+// getRandomInstIdx returns the index of an Instance that is picked
+// Randomly from the given slice of Instance. Weights of Instances
+// are taken into account
 func getRandomInstIdx(instances []*Instance) int {
 	var weightSum float32 = 0.0
 	for _, inst := range instances {
@@ -495,6 +509,8 @@ func getRandomInstIdx(instances []*Instance) int {
 	return 0
 }
 
+// blackList blacklists the Instance of the MicroService
+// identified by the given index
 func (m *MicroService) blackList(idx int, blacklist bool) {
 	m.Mutex.Lock()
 	if blacklist {
@@ -505,6 +521,8 @@ func (m *MicroService) blackList(idx int, blacklist bool) {
 	m.Mutex.Unlock()
 }
 
+// blackList blacklists the Instance of the MicroService
+// identified by the given Host
 func (m *MicroService) blackListHost(host string, blacklist bool) {
 	for idx, inst := range m.Instances {
 		if inst.Host == host {
@@ -513,6 +531,8 @@ func (m *MicroService) blackListHost(host string, blacklist bool) {
 	}
 }
 
+// isBlacklisted returns whether the Instance identified
+// by the given index is black listed
 func (m *MicroService) isBlacklisted(idx int) bool {
 	blackListed := false
 	m.Mutex.RLock()
@@ -522,6 +542,8 @@ func (m *MicroService) isBlacklisted(idx int) bool {
 	return blackListed
 }
 
+// Returns whether the Instance should still be picked
+// according to the round robin rules and internal state
 func (i *Instance) isRoundRobinPicked() bool {
 	i.RRPos.Lock()
 	defer i.RRPos.Unlock()
