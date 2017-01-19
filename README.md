@@ -13,7 +13,7 @@ You just need a config, for example:
       "services": [
         {
           "name": "Billing Service",
-          "route_prefix": "/microservice/", // Supports regular expressions with: "route_pattern": "/microservice/*"
+          "route_prefix": "/microservice/",
           "instances": [
             {
               "host": "127.0.0.1:1111",
@@ -26,11 +26,11 @@ You just need a config, for example:
               "host": "127.0.0.1:3333"
             }
           ],
-          "balancing_strategy": "round_robin", // "least_connected" or "random" for the other strategies
-          "max_connections": 300, // 0 defaults to 100000
+          "balancing_strategy": "round_robin",
+          "max_connections": 300,
           "health_check": {
             "enabled": true,
-            "interval": 30, // Durations are in seconds
+            "interval": 30,
             "dial_timeout": 2
           }
         }
@@ -39,8 +39,19 @@ You just need a config, for example:
   ]
 }
 ```
+Notes:
+Pylon supports regular expressions, you can replace "route_prefix": "/microservice/"
+with "route_pattern": "/microservice/*" or any valid regular expression
 
-And simply use it like that:
+Strategies:
+Strategies are specified with the "balancing_strategy" tag.
+Options are: "round_robin" / "least_connected" / "random"
+
+All durations are in second.
+
+If "max_connections" isn't specified or set to 0, the default max connections is 100 000
+
+Simply use Pylon in your library or main like this:
 ```go
 package main
 
@@ -61,9 +72,10 @@ func main() {
 	pylon.SetLogWriter(f)
 	// Set the logging levels
 	pylon.SetLogLevels(pylon.LOG_ERROR | pylon.LOG_INFO)
-	// Specify a custom logging function (log.Println is already the default)
+	// Specify a custom logging function (default is log.Println prefixed with (ERROR|DEBUG|INFO|VERBO)
 	pylon.SetInfoLogger(log.Println)
 	pylon.SetErrorLogger(log.Println)
+	pylon.SetVerboseLogger(log.Println)
 	
 	log.Fatal(pylon.ListenAndServe("./config.json"))
 }
