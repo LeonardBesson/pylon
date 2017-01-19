@@ -39,17 +39,16 @@ You just need a config, for example:
   ]
 }
 ```
-Notes:
-Pylon supports regular expressions, you can replace "route_prefix": "/microservice/"
+***Notes***:
+* Pylon supports regular expressions, you can replace "route_prefix": "/microservice/"
 with "route_pattern": "/microservice/*" or any valid regular expression
 
-Strategies:
-Strategies are specified with the "balancing_strategy" tag.
+* Strategies are specified with the "balancing_strategy" tag.
 Options are: "round_robin" / "least_connected" / "random"
 
-All durations are in second.
+* All durations are in second.
 
-If "max_connections" isn't specified or set to 0, the default max connections is 100 000
+* If "max_connections" isn't specified or set to 0, the default max connections is 100 000
 
 Simply use Pylon in your library or main like this:
 ```go
